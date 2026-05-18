@@ -1,61 +1,88 @@
 # Prostate Cancer PANDA DL
 
 ## Objetivo del proyecto
-Desarrollar un sistema de vision computacional con Deep Learning, guiado por regiones relevantes, para la deteccion y gradacion de severidad del cancer de prostata en biopsias histopatologicas digitalizadas (WSI), con enfoque de investigacion para tesis/articulo cientifico con potencial de publicacion.
+Disenar un sistema de vision computacional con Deep Learning, guiado por regiones relevantes, para deteccion y gradacion de severidad del cancer de prostata en biopsias histopatologicas digitalizadas (WSI), con enfoque de tesis/articulo cientifico.
 
-## Dataset usado
-- Competencia/Dataset: **PANDA - Prostate cANcer graDe Assessment**
-- Ruta esperada en Kaggle Notebook:
-  - `/kaggle/input/prostate-cancer-grade-assessment/`
-- Archivos/carpetas esperados:
+## Dataset
+- Dataset: **PANDA - Prostate cANcer graDe Assessment**
+- Ruta de Kaggle usada en este proyecto:
+  - `/kaggle/input/competitions/prostate-cancer-grade-assessment`
+- Archivos esperados:
   - `train.csv`
   - `train_images/`
   - `train_label_masks/`
-  - `test_images/`
   - `sample_submission.csv`
 
-## Alcance de esta primera fase
-Esta fase solo valida que el dataset puede leerse correctamente desde Kaggle:
-- Verifica rutas y archivos requeridos.
-- Carga `train.csv`.
-- Reporta columnas, cantidad de registros y distribuciones de `isup_grade` y `gleason_score`.
-- Cuenta archivos `.tiff` en imagenes y mascaras.
-- Intenta abrir 2-3 WSI y sus mascaras (si existen), mostrando metadata basica.
+## Fase 1: Validacion de acceso
+Valida acceso a rutas, lectura de `train.csv`, apertura de WSI y apertura de mascaras.
 
-## Que NO hace todavia
+No realiza:
+- entrenamiento
+- extraccion de tiles para modelado
+- embeddings
+- modelos MIL
+
+Script:
+- `python scripts/01_validate_panda_access.py --config config.yaml`
+
+Notebook:
+- `notebooks/kaggle_validate_panda.ipynb`
+
+## Fase 2: Preprocesamiento inicial
+Prepara artefactos de datos para entrenamiento futuro, sin entrenar modelos.
+
+### Que hace
+- Crea `splits.csv` con estratificacion por `isup_grade`.
+- Agrega `cancer_label`:
+  - `0` si `isup_grade == 0`
+  - `1` si `isup_grade >= 1`
+- Extrae tiles de `256x256` por grilla usando `OpenSlide.read_region`.
+- Evalua candidatos por `tissue_pct` y `mask_pct`.
+- Selecciona hasta `tiles_per_slide` por slide (modo controlado con `max_slides`).
+- Guarda:
+  - `candidate_tiles_manifest.csv`
+  - `tile_manifest.csv`
+  - PNG de tiles seleccionados
+  - logs
+
+### Que NO hace en Fase 2
 - No entrena modelos.
-- No extrae tiles.
-- No extrae embeddings.
-- No aplica preprocesamiento avanzado.
-- No implementa pipeline de inferencia/modelado.
+- No genera embeddings (UNI/Virchow2).
+- No implementa ABMIL/CLAM/TransMIL.
+- No calcula metricas finales.
 
-## Estructura inicial
+### Outputs de Fase 2
+Se guardan en:
+- `/kaggle/working/panda_outputs`
+
+Estructura esperada:
 ```text
-prostate-cancer-panda-dl/
-├── README.md
-├── requirements.txt
-├── config.yaml
-├── AGENTS.md
-├── notebooks/
-│   └── kaggle_validate_panda.ipynb
-├── scripts/
-│   └── 01_validate_panda_access.py
-└── src/
-    └── utils/
-        ├── paths.py
-        └── seed.py
+/kaggle/working/panda_outputs/
+├── metadata/
+│   ├── splits.csv
+│   ├── candidate_tiles_manifest.csv
+│   └── tile_manifest.csv
+├── selected_tiles/
+│   ├── train/
+│   ├── valid/
+│   └── test/
+└── logs/
 ```
 
+El dataset PANDA original se mantiene en Kaggle (`/kaggle/input/...`).
+Luego puedes copiar/exportar la carpeta `panda_outputs` a Google Drive.
+
 ## Ejecucion en Kaggle
-1. Crear/abrir un notebook de Kaggle.
-2. Adjuntar el dataset **prostate-cancer-grade-assessment**.
-3. Copiar este repositorio al entorno de Kaggle (por ejemplo en `/kaggle/working/`).
-4. Instalar dependencias:
-   ```bash
-   pip install -r requirements.txt
-   ```
-5. Ejecutar validacion por script:
-   ```bash
-   python scripts/01_validate_panda_access.py --config config.yaml
-   ```
-6. Opcional: ejecutar el notebook `notebooks/kaggle_validate_panda.ipynb` para la misma validacion por bloques.
+Dentro del repo:
+```bash
+pip install -r requirements.txt
+python scripts/02_create_splits.py
+python scripts/03_extract_tiles.py
+```
+
+## Parametros clave
+En `config.yaml` puedes ajustar:
+- `max_slides` para pruebas controladas
+- `tile_size`, `tile_level`, `tiles_per_slide`
+- umbrales `min_tissue_pct`, `min_mask_pct`
+- proporciones en `split.train_size`, `split.valid_size`, `split.test_size`

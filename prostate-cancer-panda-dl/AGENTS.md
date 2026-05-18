@@ -2,8 +2,11 @@
 
 ## Alcance y control de fases
 - No avanzar a entrenamiento de modelos sin autorizacion explicita del investigador.
-- No implementar extraccion de tiles, embeddings o modelado en esta fase inicial.
+- No entrenar modelos sin autorizacion.
+- No generar embeddings sin autorizacion.
 - Mantener el enfoque del proyecto: deteccion y gradacion de cancer de prostata con PANDA.
+- No procesar todo PANDA por defecto en fases de preprocesamiento inicial.
+- Usar siempre `max_slides` para pruebas iniciales controladas.
 
 ## Reproducibilidad
 - Mantener rutas configurables desde `config.yaml`.
@@ -14,7 +17,10 @@
 - Conservar trazabilidad por:
   - `slide_id`
   - `tile_id`
-  - `coordenadas`
+  - `coordenadas x/y`
+  - `level`
+  - `tissue_pct`
+  - `mask_pct`
   - `isup_grade`
   - `gleason_score`
   - `split` (train/val/test)
