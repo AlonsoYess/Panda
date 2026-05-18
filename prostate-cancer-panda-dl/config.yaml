@@ -1,4 +1,4 @@
-data_root: /kaggle/input/prostate-cancer-grade-assessment
+data_root: /kaggle/input/competitions/prostate-cancer-grade-assessment
 train_csv: train.csv
 train_images_dir: train_images
 train_label_masks_dir: train_label_masks
