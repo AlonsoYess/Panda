@@ -81,6 +81,26 @@ def count_tiff_files(directory: Path) -> int:
     return sum(1 for path in directory.glob("*.tiff") if path.is_file())
 
 
+def count_mask_files_with_primary_pattern(directory: Path) -> int:
+    if not directory.exists():
+        return 0
+    return sum(1 for path in directory.glob("*_mask.tiff") if path.is_file())
+
+
+def get_mask_candidates(image_id: str, masks_dir: Path) -> list[Path]:
+    return [
+        masks_dir / f"{image_id}_mask.tiff",
+        masks_dir / f"{image_id}.tiff",
+    ]
+
+
+def resolve_mask_path(image_id: str, masks_dir: Path) -> Optional[Path]:
+    for candidate in get_mask_candidates(image_id=image_id, masks_dir=masks_dir):
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def inspect_wsi(path: Path) -> None:
     if not path.exists():
         warn(f"Archivo no existe: {path.name}")
@@ -125,7 +145,7 @@ def inspect_wsi(path: Path) -> None:
     err(f"No se pudo extraer metadata de {path.name} con los lectores disponibles.")
 
 
-def select_examples(df: pd.DataFrame, n: int = 3) -> pd.DataFrame:
+def select_examples(df: pd.DataFrame, masks_dir: Path, n: int = 3) -> pd.DataFrame:
     if "image_id" not in df.columns:
         raise ValueError("train.csv no contiene la columna 'image_id'.")
 
@@ -133,8 +153,42 @@ def select_examples(df: pd.DataFrame, n: int = 3) -> pd.DataFrame:
     if n == 0:
         return df.iloc[0:0]
 
-    # Deterministic random sample for reproducibility.
-    return df.sample(n=n, random_state=42).reset_index(drop=True)
+    df_local = df.copy()
+    df_local["image_id"] = df_local["image_id"].astype(str)
+
+    mask_names: set[str] = set()
+    if masks_dir.exists():
+        mask_names = {path.name for path in masks_dir.glob("*.tiff") if path.is_file()}
+
+    def pick_mask_filename(image_id: str) -> Optional[str]:
+        primary = f"{image_id}_mask.tiff"
+        fallback = f"{image_id}.tiff"
+        if primary in mask_names:
+            return primary
+        if fallback in mask_names:
+            return fallback
+        return None
+
+    df_local["_mask_filename"] = df_local["image_id"].apply(pick_mask_filename)
+    df_local["_has_mask"] = df_local["_mask_filename"].notna()
+
+    with_mask = df_local[df_local["_has_mask"]]
+    without_mask = df_local[~df_local["_has_mask"]]
+
+    selected_frames: list[pd.DataFrame] = []
+    n_with_mask = min(n, len(with_mask))
+    if n_with_mask > 0:
+        selected_frames.append(with_mask.sample(n=n_with_mask, random_state=42))
+
+    remaining = n - n_with_mask
+    if remaining > 0 and len(without_mask) > 0:
+        selected_frames.append(without_mask.sample(n=remaining, random_state=42))
+
+    if not selected_frames:
+        return df_local.iloc[0:0]
+
+    selected = pd.concat(selected_frames, axis=0).sample(frac=1, random_state=42).reset_index(drop=True)
+    return selected
 
 
 def ensure_readers_notice() -> None:
@@ -182,12 +236,14 @@ def run_validation(config_path: Path) -> int:
 
     n_train_images = count_tiff_files(paths["train_images_dir"])
     n_train_masks = count_tiff_files(paths["train_label_masks_dir"])
+    n_train_masks_primary = count_mask_files_with_primary_pattern(paths["train_label_masks_dir"])
     info(f"Total de archivos .tiff en train_images: {n_train_images}")
     info(f"Total de archivos .tiff en train_label_masks: {n_train_masks}")
+    info(f"Total de mascaras con patron *_mask.tiff: {n_train_masks_primary}")
     print()
 
     try:
-        sample_rows = select_examples(train_df, n=3)
+        sample_rows = select_examples(train_df, masks_dir=paths["train_label_masks_dir"], n=3)
     except Exception as ex:
         err(f"No se pudo seleccionar ejemplos de train.csv: {ex}")
         return 1
@@ -199,23 +255,33 @@ def run_validation(config_path: Path) -> int:
     display_cols: Iterable[str] = [
         col for col in ["image_id", "isup_grade", "gleason_score", "data_provider"] if col in sample_rows.columns
     ]
+    if "_has_mask" in sample_rows.columns:
+        display_cols = list(display_cols) + ["_has_mask", "_mask_filename"]
+
     info("Ejemplos seleccionados para validacion:")
     print(sample_rows[list(display_cols)])
     print()
 
     for _, row in sample_rows.iterrows():
-        image_id = row["image_id"]
+        image_id = str(row["image_id"])
         image_path = paths["train_images_dir"] / f"{image_id}.tiff"
-        mask_path = paths["train_label_masks_dir"] / f"{image_id}.tiff"
+        mask_candidates = get_mask_candidates(image_id=image_id, masks_dir=paths["train_label_masks_dir"])
+        mask_path = resolve_mask_path(image_id=image_id, masks_dir=paths["train_label_masks_dir"])
 
         info(f"--- Validando image_id={image_id} ---")
+        info(f"Ruta imagen WSI: {image_path}")
+        info(f"Imagen WSI existe: {'SI' if image_path.exists() else 'NO'}")
+        info(f"Ruta mascara principal esperada: {mask_candidates[0]}")
+        info(f"Ruta mascara fallback: {mask_candidates[1]}")
+        info(f"Mascara existe: {'SI' if mask_path is not None else 'NO'}")
+
         inspect_wsi(image_path)
 
-        if mask_path.exists():
-            info("Mascara asociada encontrada. Intentando lectura...")
+        if mask_path is not None:
+            info(f"Mascara asociada encontrada. Ruta final: {mask_path}")
             inspect_wsi(mask_path)
         else:
-            warn(f"Mascara no encontrada para {image_id} ({mask_path.name})")
+            warn(f"Mascara no encontrada para {image_id} usando ambos patrones esperados.")
         print()
 
     ok("Validacion finalizada.")
