@@ -25,17 +25,29 @@ def resolve_mask_path(image_id: str, masks_dir: Path) -> Optional[Path]:
     return None
 
 
-def mask_tile_to_pct(mask_tile: Image.Image) -> float:
+def compute_mask_pct(mask_region: Image.Image) -> float:
     """
-    Compute foreground ratio from a mask tile.
-    Any pixel > 0 in at least one channel is considered positive mask.
+    Compute foreground ratio from a mask region, ignoring alpha channel.
+    - If mask is RGBA, only RGB channels are used.
+    - If mask is grayscale, direct threshold is used.
+    A pixel is positive when the real mask signal is > 0.
     """
-    arr = np.asarray(mask_tile, dtype=np.uint8)
+    arr = np.asarray(mask_region, dtype=np.uint8)
     if arr.size == 0:
         return 0.0
+
     if arr.ndim == 2:
         positive = arr > 0
     else:
-        positive = (arr > 0).any(axis=2)
+        # Ignore alpha if present (e.g., RGBA from OpenSlide read_region).
+        rgb = arr[:, :, :3]
+        # Convert RGB to single mask intensity to avoid counting alpha-only signal.
+        grayscale = rgb.max(axis=2)
+        positive = grayscale > 0
+
     return float(positive.mean())
 
+
+def mask_tile_to_pct(mask_tile: Image.Image) -> float:
+    """Backward-compatible alias."""
+    return compute_mask_pct(mask_tile)

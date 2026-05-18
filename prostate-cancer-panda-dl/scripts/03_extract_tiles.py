@@ -21,7 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from src.data.tile_manifest import build_manifest_dataframe, selected_only
-from src.preprocessing.mask_processing import get_mask_candidates, mask_tile_to_pct, resolve_mask_path
+from src.preprocessing.mask_processing import compute_mask_pct, get_mask_candidates, resolve_mask_path
 from src.preprocessing.tile_selection import compute_grid_step, select_tiles_for_slide
 from src.preprocessing.tissue_detection import compute_tissue_pct, pil_to_rgb_array
 from src.utils.io import ensure_dir, ensure_output_structure, save_dataframe_csv
@@ -156,7 +156,7 @@ def process_single_slide(
                     mask_pct = 0.0
                     if mask_slide is not None:
                         mask_tile = mask_slide.read_region((x0, y0), mask_level, (tile_size, tile_size))
-                        mask_pct = mask_tile_to_pct(mask_tile)
+                        mask_pct = compute_mask_pct(mask_tile)
 
                     records.append(
                         {
@@ -339,4 +339,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
