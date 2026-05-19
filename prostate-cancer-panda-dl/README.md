@@ -86,3 +86,35 @@ En `config.yaml` puedes ajustar:
 - `tile_size`, `tile_level`, `tiles_per_slide`
 - umbrales `min_tissue_pct`, `min_mask_pct`
 - proporciones en `split.train_size`, `split.valid_size`, `split.test_size`
+
+## Fase 2C - Extraccion por lotes en Kaggle
+Permite procesar PANDA por rangos de slides para evitar ejecutar las 10,616 WSI en una sola corrida.
+
+### Scripts
+- `scripts/04_extract_tiles_batch.py`
+- `scripts/05_merge_batch_manifests.py`
+
+### Ejemplos de uso
+```bash
+python scripts/04_extract_tiles_batch.py --batch-index 0 --batch-size 100
+python scripts/04_extract_tiles_batch.py --batch-index 1 --batch-size 100
+python scripts/04_extract_tiles_batch.py --batch-index 0 --batch-size 100 --split train
+python scripts/05_merge_batch_manifests.py
+```
+
+### Salida por batch
+Cada batch se guarda separado en:
+- `/kaggle/working/panda_outputs_batches/batch_XXXX_YYYY/`
+
+Con estructura:
+- `metadata/candidate_tiles_manifest.csv`
+- `metadata/tile_manifest.csv`
+- `logs/04_extract_tiles_batch_YYYYMMDD_HHMMSS.log`
+- `selected_tiles/{split}/{slide_id}/{tile_id}.png`
+- `summary.json`
+
+### Merge final de manifests
+`05_merge_batch_manifests.py` une todos los batches encontrados en:
+- `/kaggle/working/panda_outputs_merged/metadata/candidate_tiles_manifest.csv`
+- `/kaggle/working/panda_outputs_merged/metadata/tile_manifest.csv`
+- `/kaggle/working/panda_outputs_merged/metadata/summary_batches.csv`

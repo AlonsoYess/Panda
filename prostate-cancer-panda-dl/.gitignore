@@ -1,0 +1,4 @@
+panda_outputs/
+panda_outputs_batches/
+panda_outputs_merged/
+*.zip
