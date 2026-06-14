@@ -12,3 +12,14 @@ outputs/
 *.npz
 __pycache__/
 *.pyc
+.env
+.env.*
+kaggle.json
+checkpoints/
+embeddings/
+tiles/
+selected_tiles/
+panda_uni2h_work/
+**pycache**/
+**/__pycache__/
+.ipynb_checkpoints/

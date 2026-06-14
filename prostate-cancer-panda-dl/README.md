@@ -159,3 +159,22 @@ Esta fase permite entrenar un clasificador binario (cancer/no cancer) a nivel WS
 ### Nota sobre escalamiento
 Esta fase esta pensada para pruebas locales. Luego se puede migrar la misma estructura a Drive/Colab para escalar volumen y tiempo de corrida.
 
+## Extraccion oficial UNI2-h en Colab
+
+El codigo fuente se mantiene en GitHub y los ZIPs, embeddings, checkpoints y
+resultados pesados se almacenan en Google Drive. Las credenciales se suministran
+mediante variables de entorno o secretos de Colab; nunca se guardan en el
+repositorio.
+
+El baseline UNI clasico permanece separado en `outputs/abmil_uni_binary/` y usa
+embeddings de 1024 dimensiones. El flujo oficial UNI2-h escribe en
+`outputs/abmil_uni2h_binary/` y valida embeddings de 1536 dimensiones.
+
+Guia completa:
+- `docs/experiments/uni2h_embedding_extraction.md`
+
+Validacion sin cargar el modelo:
+```bash
+python scripts/10_extract_uni2h_embeddings.py --config configs/abmil_uni2h_binary.yaml --dry-run --max-wsi 5
+```
+

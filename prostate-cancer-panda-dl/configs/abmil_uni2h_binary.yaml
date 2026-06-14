@@ -1,0 +1,27 @@
+experiment_name: abmil_uni2h_binary
+task: binary
+label_column: cancer_label
+encoder_name: MahmoodLab/UNI2-h
+encoder_family: UNI2-h
+expected_embedding_dim: 1536
+image_size: 224
+batch_size_tiles: 1
+amp: true
+num_workers: 2
+pin_memory: true
+seed: 42
+device: cuda
+
+drive_raw_batches_dir: /content/drive/MyDrive/PANDA_PROSTATE/data/raw_batches
+work_dir: /content/panda_uni2h_work
+output_root: /content/drive/MyDrive/PANDA_PROSTATE/outputs/abmil_uni2h_binary
+embeddings_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/abmil_uni2h_binary/embeddings
+metrics_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/abmil_uni2h_binary/metrics
+plots_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/abmil_uni2h_binary/plots
+checkpoints_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/abmil_uni2h_binary/checkpoints
+
+resume: true
+max_wsi: null
+force: false
+dry_run: false
+limit_slides: null
