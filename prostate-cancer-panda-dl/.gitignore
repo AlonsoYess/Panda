@@ -1,4 +1,14 @@
 panda_outputs/
 panda_outputs_batches/
 panda_outputs_merged/
+data/raw_batches/
+data/extracted_batches/
+data/manifests/
+outputs/
 *.zip
+*.pt
+*.pth
+*.npy
+*.npz
+__pycache__/
+*.pyc
