@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import pandas as pd
@@ -14,6 +15,7 @@ import torch
 import yaml
 
 from src.mil.clam import CLAMBinary
+from src.mil.uni2h_dataset import UNI2HEmbeddingDataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -188,6 +190,43 @@ class CLAMConfigAndScriptTests(unittest.TestCase):
                 "pred_label_threshold_youden",
             ],
         )
+
+
+class CLAMLazyDatasetTests(unittest.TestCase):
+    def test_clam_lazy_dataset_does_not_load_all_embeddings_on_init(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            split_dir = Path(temp_dir) / "embeddings" / "train"
+            split_dir.mkdir(parents=True)
+            for index in range(3):
+                (split_dir / f"slide-{index}.pt").write_bytes(b"not-loaded")
+
+            payload = {
+                "slide_id": "slide-0",
+                "features": torch.randn(4, 1536),
+                "cancer_label": 1,
+                "split": "train",
+                "encoder_name": "MahmoodLab/UNI2-h",
+                "encoder_family": "UNI2-h",
+                "embedding_dim": 1536,
+            }
+
+            with mock.patch(
+                "src.mil.uni2h_dataset.torch.load",
+                return_value=payload,
+            ) as mocked_load:
+                dataset = UNI2HEmbeddingDataset(
+                    Path(temp_dir) / "embeddings",
+                    split="train",
+                    validate_on_init=False,
+                )
+
+                self.assertEqual(len(dataset), 3)
+                mocked_load.assert_not_called()
+
+                sample = dataset[0]
+                self.assertEqual(sample["slide_id"], "slide-0")
+                self.assertEqual(tuple(sample["features"].shape), (4, 1536))
+                self.assertEqual(mocked_load.call_count, 1)
 
 
 class CLAMSmokeIntegrationTests(unittest.TestCase):

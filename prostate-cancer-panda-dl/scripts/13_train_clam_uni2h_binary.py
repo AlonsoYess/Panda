@@ -359,11 +359,13 @@ def run(args: argparse.Namespace) -> int:
         Path(config["embeddings_root"]),
         split="train",
         max_items=config.get("max_train"),
+        validate_on_init=False,
     )
     valid_dataset = UNI2HEmbeddingDataset(
         Path(config["embeddings_root"]),
         split="valid",
         max_items=config.get("max_valid"),
+        validate_on_init=False,
     )
     model = build_model(config).to(device)
     total_parameters, trainable_parameters = count_parameters(model)

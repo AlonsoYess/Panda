@@ -221,11 +221,13 @@ def run(args: argparse.Namespace) -> int:
         Path(config["embeddings_root"]),
         split="valid",
         max_items=config.get("max_valid"),
+        validate_on_init=False,
     )
     test_dataset = UNI2HEmbeddingDataset(
         Path(config["embeddings_root"]),
         split="test",
         max_items=config.get("max_test"),
+        validate_on_init=False,
     )
     valid_loader = build_loader(valid_dataset, config, device)
     test_loader = build_loader(test_dataset, config, device)
