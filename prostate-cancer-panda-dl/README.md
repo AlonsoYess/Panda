@@ -178,3 +178,17 @@ Validacion sin cargar el modelo:
 python scripts/10_extract_uni2h_embeddings.py --config configs/abmil_uni2h_binary.yaml --dry-run --max-wsi 5
 ```
 
+## Entrenamiento ABMIL + UNI2-h
+
+Después de extraer y validar embeddings UNI2-h, ABMIL se entrena directamente
+con los archivos `.pt`; no vuelve a procesar imágenes. El entrenamiento guarda
+un checkpoint al finalizar cada época y puede reanudarse después de una
+desconexión de Colab.
+
+La evaluación final utiliza `best_model.pt`, calcula el umbral con validación y
+usa test una sola vez para el reporte final. Embeddings, checkpoints y outputs
+pesados permanecen en Google Drive y no se suben al repositorio.
+
+Guía:
+- `docs/experiments/abmil_uni2h_training.md`
+

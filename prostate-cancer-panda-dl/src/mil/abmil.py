@@ -9,18 +9,27 @@ from torch import nn
 class ABMIL(nn.Module):
     """Classic ABMIL architecture for variable-size tile bags."""
 
-    def __init__(self, input_dim: int, hidden_dim: int = 512, dropout: float = 0.25) -> None:
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int = 512,
+        dropout: float = 0.25,
+        attention_dim: int | None = None,
+    ) -> None:
         super().__init__()
         self.input_dim = int(input_dim)
         self.hidden_dim = int(hidden_dim)
+        self.attention_dim = (
+            self.hidden_dim if attention_dim is None else int(attention_dim)
+        )
 
         self.feature_proj = nn.Sequential(
             nn.Linear(self.input_dim, self.hidden_dim),
             nn.ReLU(inplace=True),
             nn.Dropout(p=float(dropout)),
         )
-        self.attn_w1 = nn.Linear(self.hidden_dim, self.hidden_dim)
-        self.attn_w2 = nn.Linear(self.hidden_dim, 1, bias=False)
+        self.attn_w1 = nn.Linear(self.hidden_dim, self.attention_dim)
+        self.attn_w2 = nn.Linear(self.attention_dim, 1, bias=False)
         self.classifier = nn.Linear(self.hidden_dim, 1)
 
     def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -42,4 +51,3 @@ class ABMIL(nn.Module):
         logits = self.classifier(m).squeeze(-1)  # []
 
         return logits, attention.squeeze(-1)
-
