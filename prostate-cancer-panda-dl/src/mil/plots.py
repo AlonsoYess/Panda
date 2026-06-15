@@ -70,7 +70,11 @@ def save_confusion_matrix(
     plt.close(figure)
 
 
-def save_loss_history(history: Sequence[Dict[str, Any]], path: Path) -> None:
+def save_loss_history(
+    history: Sequence[Dict[str, Any]],
+    path: Path,
+    title_prefix: str = "ABMIL + UNI2-h",
+) -> None:
     """Save train and validation loss by epoch."""
     output = _prepare_output(path)
     epochs = [row["epoch"] for row in history]
@@ -82,7 +86,7 @@ def save_loss_history(history: Sequence[Dict[str, Any]], path: Path) -> None:
     axis.plot(epochs, valid_loss, marker="o", label="valid_loss")
     axis.set_xlabel("Epoch")
     axis.set_ylabel("Loss")
-    axis.set_title("ABMIL + UNI2-h Loss")
+    axis.set_title(f"{title_prefix} Loss")
     axis.grid(alpha=0.25)
     axis.legend()
     figure.tight_layout()
@@ -90,7 +94,11 @@ def save_loss_history(history: Sequence[Dict[str, Any]], path: Path) -> None:
     plt.close(figure)
 
 
-def save_metric_history(history: Sequence[Dict[str, Any]], path: Path) -> None:
+def save_metric_history(
+    history: Sequence[Dict[str, Any]],
+    path: Path,
+    title_prefix: str = "ABMIL + UNI2-h",
+) -> None:
     """Save validation AUC and F1 by epoch."""
     output = _prepare_output(path)
     epochs = [row["epoch"] for row in history]
@@ -106,7 +114,7 @@ def save_metric_history(history: Sequence[Dict[str, Any]], path: Path) -> None:
     axis.set_xlabel("Epoch")
     axis.set_ylabel("Metric")
     axis.set_ylim(0.0, 1.05)
-    axis.set_title("ABMIL + UNI2-h Validation Metrics")
+    axis.set_title(f"{title_prefix} Validation Metrics")
     axis.grid(alpha=0.25)
     axis.legend()
     figure.tight_layout()
