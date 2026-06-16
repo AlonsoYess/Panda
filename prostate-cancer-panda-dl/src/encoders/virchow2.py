@@ -232,7 +232,13 @@ class Virchow2Encoder:
             else f"hf-hub:{self.model_name}"
         )
         try:
-            model = timm.create_model(timm_model_name, pretrained=True, num_classes=0)
+            model = timm.create_model(
+                timm_model_name,
+                pretrained=True,
+                num_classes=0,
+                mlp_layer=timm.layers.SwiGLUPacked,
+                act_layer=torch.nn.SiLU,
+            )
         except Exception as exc:
             if not token:
                 raise RuntimeError(
