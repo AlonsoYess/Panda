@@ -1,0 +1,32 @@
+experiment_name: virchow2_binary_embedding_extraction
+task: binary
+label_column: cancer_label
+encoder_name: paige-ai/Virchow2
+encoder_family: Virchow2
+
+output_root: /content/drive/MyDrive/PANDA_PROSTATE/outputs/virchow2_binary
+embeddings_root: /content/drive/MyDrive/PANDA_PROSTATE/outputs/virchow2_binary/embeddings
+metrics_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/virchow2_binary/metrics
+logs_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/virchow2_binary/logs
+raw_batches_dir: /content/drive/MyDrive/PANDA_PROSTATE/data/raw_batches
+work_dir: /content/panda_virchow2_work
+splits_dir: null
+
+image_size: 224
+tile_size: 256
+tiles_per_slide: 32
+min_tissue_pct: 0.50
+min_mask_pct: 0.01
+
+batch_size: 16
+num_workers: 0
+pin_memory: true
+device: cuda
+mixed_precision: true
+skip_existing: true
+max_slides: null
+splits:
+  - train
+  - valid
+  - test
+random_seed: 42
