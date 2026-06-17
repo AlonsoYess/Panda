@@ -1,0 +1,47 @@
+experiment_name: transmil_virchow2_binary
+task: binary cancer detection
+label_key: cancer_label
+label_column: cancer_label
+input_dim: 1280
+encoder_name: paige-ai/Virchow2
+encoder_family: Virchow2
+
+embeddings_root: /content/drive/MyDrive/PANDA_PROSTATE/outputs/virchow2_binary/embeddings
+output_root: /content/drive/MyDrive/PANDA_PROSTATE/outputs/transmil_virchow2_binary
+checkpoints_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/transmil_virchow2_binary/checkpoints
+metrics_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/transmil_virchow2_binary/metrics
+plots_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/transmil_virchow2_binary/plots
+logs_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/transmil_virchow2_binary/logs
+entregables_dir: /content/drive/MyDrive/PANDA_PROSTATE/entregables/transmil_virchow2_binary_resultados
+
+seed: 42
+hidden_dim: 256
+num_layers: 2
+num_heads: 4
+dim_feedforward: 512
+dropout: 0.25
+max_tiles: 512
+epochs: 50
+batch_size: 1
+learning_rate: 0.0001
+weight_decay: 0.00001
+early_stopping_patience: 10
+monitor: valid_auc
+random_seed: 42
+threshold_default: 0.5
+threshold_selection: Youden
+num_workers: 0
+pin_memory: false
+save_epoch_checkpoints: true
+resume: true
+mixed_precision: false
+device: cuda
+
+max_train: null
+max_valid: null
+max_test: null
+
+expected_splits:
+  - train
+  - valid
+  - test
