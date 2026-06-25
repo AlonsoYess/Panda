@@ -1,0 +1,30 @@
+data_root: /kaggle/input/competitions/prostate-cancer-grade-assessment
+train_csv: /kaggle/input/competitions/prostate-cancer-grade-assessment/train.csv
+train_images_dir: /kaggle/input/competitions/prostate-cancer-grade-assessment/train_images
+train_label_masks_dir: /kaggle/input/competitions/prostate-cancer-grade-assessment/train_label_masks
+splits_csv: /kaggle/working/panda_outputs/metadata/splits.csv
+
+batch_outputs_dir: /kaggle/working/panda_outputs_batches_advanced
+
+tile_size: 256
+tile_level: 0
+tiles_per_slide: 128
+also_prepare_for_tiles_per_slide: 256
+min_tissue_pct: 0.50
+min_mask_pct: 0.01
+max_candidates_per_slide: 6000
+random_seed: 42
+
+selection_strategy: advanced_quality_spatial_diverse
+# Supported policies: never, train_only, all.
+# train_only avoids mask-guided selection leakage in valid/test.
+mask_usage_policy: train_only
+
+save_candidate_manifest: true
+save_selected_manifest: true
+save_summary_json: true
+save_config_copy: true
+save_checksums: true
+zip_batch: true
+skip_existing: true
+resume: true
