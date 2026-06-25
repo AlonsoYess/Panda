@@ -2,7 +2,7 @@ data_root: /kaggle/input/competitions/prostate-cancer-grade-assessment
 train_csv: /kaggle/input/competitions/prostate-cancer-grade-assessment/train.csv
 train_images_dir: /kaggle/input/competitions/prostate-cancer-grade-assessment/train_images
 train_label_masks_dir: /kaggle/input/competitions/prostate-cancer-grade-assessment/train_label_masks
-splits_csv: /kaggle/working/panda_outputs/metadata/splits.csv
+splits_csv: metadata/splits_10099_from_virchow2_binary.csv
 
 batch_outputs_dir: /kaggle/working/panda_outputs_batches_advanced
 

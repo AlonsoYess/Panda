@@ -172,7 +172,10 @@ def should_use_mask_for_selection(split_name: str, policy: str) -> bool:
 def as_path(config: Dict[str, Any], key: str) -> Path:
     if key not in config:
         raise KeyError(f"Falta '{key}' en config.")
-    return Path(str(config[key]))
+    path = Path(str(config[key]))
+    if path.is_absolute():
+        return path
+    return PROJECT_ROOT / path
 
 
 def validate_splits(df: pd.DataFrame) -> None:
