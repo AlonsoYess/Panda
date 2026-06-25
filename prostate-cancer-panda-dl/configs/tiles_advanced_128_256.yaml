@@ -11,6 +11,8 @@ tile_level: 0
 tiles_per_slide: 128
 also_prepare_for_tiles_per_slide: 256
 min_tissue_pct: 0.50
+absolute_min_tissue_pct: 0.30
+allow_partial_bags: true
 min_mask_pct: 0.01
 max_candidates_per_slide: 6000
 random_seed: 42

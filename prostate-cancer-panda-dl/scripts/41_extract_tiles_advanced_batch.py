@@ -360,6 +360,8 @@ def select_spatially_diverse(
     *,
     tiles_per_slide: int,
     min_tissue_pct: float,
+    absolute_min_tissue_pct: float,
+    allow_partial_bags: bool,
     selection_strategy: str,
 ) -> pd.DataFrame:
     df = candidates_df.copy()
@@ -369,7 +371,11 @@ def select_spatially_diverse(
     if df.empty:
         return df
 
-    eligible = df[df["tissue_pct"].astype(float) >= float(min_tissue_pct)].copy()
+    tissue = df["tissue_pct"].astype(float)
+    absolute_eligible = df[tissue >= float(absolute_min_tissue_pct)].copy()
+    eligible = absolute_eligible[
+        absolute_eligible["tissue_pct"].astype(float) >= float(min_tissue_pct)
+    ].copy()
     selected_indices: list[int] = []
 
     if not eligible.empty:
@@ -408,6 +414,16 @@ def select_spatially_diverse(
                 selected_indices.append(int(idx))
 
     if len(selected_indices) < tiles_per_slide:
+        remaining = absolute_eligible[~absolute_eligible.index.isin(selected_indices)].sort_values(
+            ["selection_score", "histology_score", "quality_score", "tissue_pct"],
+            ascending=[False, False, False, False],
+        )
+        for idx in remaining.index:
+            if len(selected_indices) >= tiles_per_slide:
+                break
+            selected_indices.append(int(idx))
+
+    if len(selected_indices) < tiles_per_slide and not allow_partial_bags:
         remaining = df[~df.index.isin(selected_indices)].sort_values(
             ["selection_score", "histology_score", "quality_score", "tissue_pct"],
             ascending=[False, False, False, False],
@@ -494,6 +510,8 @@ def generate_candidates_for_slide(
     requested_level = int(config["tile_level"])
     tiles_per_slide = int(config["tiles_per_slide"])
     min_tissue_pct = float(config["min_tissue_pct"])
+    absolute_min_tissue_pct = float(config.get("absolute_min_tissue_pct", 0.0))
+    allow_partial_bags = bool(config.get("allow_partial_bags", True))
     min_mask_pct = float(config["min_mask_pct"])
     max_candidates = int(config.get("max_candidates_per_slide", 6000))
     selection_strategy = str(config.get("selection_strategy", "advanced_quality_spatial_diverse"))
@@ -627,10 +645,37 @@ def generate_candidates_for_slide(
             candidate_df,
             tiles_per_slide=tiles_per_slide,
             min_tissue_pct=min_tissue_pct,
+            absolute_min_tissue_pct=absolute_min_tissue_pct,
+            allow_partial_bags=allow_partial_bags,
             selection_strategy=selection_strategy,
         )
         selected_df = candidate_df[candidate_df["selected"].astype(int) == 1].copy()
         selected_df = selected_df.sort_values("selection_rank")
+        partial_bag = len(selected_df) < tiles_per_slide
+        low_tissue_selected = (
+            not selected_df.empty
+            and (selected_df["tissue_pct"].astype(float) < absolute_min_tissue_pct).any()
+        )
+        if partial_bag:
+            if allow_partial_bags:
+                logger.warning(
+                    "slide=%s partial_bag=True selected=%s target=%s absolute_min_tissue_pct=%s",
+                    slide_id,
+                    len(selected_df),
+                    tiles_per_slide,
+                    absolute_min_tissue_pct,
+                )
+            else:
+                logger.warning(
+                    "slide=%s allow_partial_bags=False; se completo por debajo de absolute_min_tissue_pct si fue necesario.",
+                    slide_id,
+                )
+        if low_tissue_selected and not allow_partial_bags:
+            logger.warning(
+                "slide=%s selecciono tiles con tissue_pct < absolute_min_tissue_pct=%s porque allow_partial_bags=False.",
+                slide_id,
+                absolute_min_tissue_pct,
+            )
 
         candidate_df, selected_df, checksums = save_selected_tiles(
             slide=slide,
@@ -642,6 +687,13 @@ def generate_candidates_for_slide(
             tile_size=tile_size,
             downsample=downsample,
             candidate_df=candidate_df,
+        )
+        logger.info(
+            "slide=%s candidates=%s selected=%s partial_bag=%s",
+            slide_id,
+            len(candidate_df),
+            len(selected_df),
+            partial_bag,
         )
         return candidate_df, selected_df, checksums
 
@@ -669,11 +721,26 @@ def write_csv(df: pd.DataFrame, path: Path) -> None:
     df.to_csv(path, index=False)
 
 
-def selected_count_stats(selected_manifest: pd.DataFrame) -> dict[str, Any]:
+def selected_count_stats(
+    selected_manifest: pd.DataFrame,
+    *,
+    processed_slide_ids: Iterable[str],
+    tiles_per_slide: int,
+) -> dict[str, Any]:
+    processed = [str(slide_id) for slide_id in processed_slide_ids]
+    if not processed:
+        return {
+            "slides_with_partial_bags": 0,
+            "min_selected_per_slide": 0,
+            "mean_selected_per_slide": 0.0,
+            "max_selected_per_slide": 0,
+        }
     if selected_manifest.empty:
-        return {"min_selected_per_slide": 0, "mean_selected_per_slide": 0.0, "max_selected_per_slide": 0}
-    counts = selected_manifest.groupby("slide_id").size()
+        counts = pd.Series(0, index=processed, dtype=int)
+    else:
+        counts = selected_manifest.groupby("slide_id").size().reindex(processed, fill_value=0)
     return {
+        "slides_with_partial_bags": int((counts < int(tiles_per_slide)).sum()),
         "min_selected_per_slide": int(counts.min()),
         "mean_selected_per_slide": float(counts.mean()),
         "max_selected_per_slide": int(counts.max()),
@@ -728,6 +795,8 @@ def run(args: argparse.Namespace) -> int:
         print(f"batch_dir: {batch_paths['batch_dir']}")
         print(f"zip_path: {batch_paths['zip_path']}")
         print(f"tiles_per_slide: {config['tiles_per_slide']}")
+        print(f"absolute_min_tissue_pct: {config.get('absolute_min_tissue_pct', 0.0)}")
+        print(f"allow_partial_bags: {config.get('allow_partial_bags', True)}")
         print(f"mask_usage_policy: {mask_usage_policy}")
         print(batch_df[["image_id", "split", "isup_grade", "cancer_label"]].head())
         return 0
@@ -744,6 +813,8 @@ def run(args: argparse.Namespace) -> int:
     logger.info("batch_index=%s batch_size=%s split=%s", args.batch_index, args.batch_size, args.split)
     logger.info("batch_dir=%s", batch_paths["batch_dir"])
     logger.info("tiles_per_slide=%s", config.get("tiles_per_slide"))
+    logger.info("absolute_min_tissue_pct=%s", config.get("absolute_min_tissue_pct", 0.0))
+    logger.info("allow_partial_bags=%s", config.get("allow_partial_bags", True))
     logger.info("mask_usage_policy=%s", mask_usage_policy)
 
     if bool(config.get("save_config_copy", True)):
@@ -754,6 +825,7 @@ def run(args: argparse.Namespace) -> int:
     candidate_frames: list[pd.DataFrame] = []
     selected_frames: list[pd.DataFrame] = []
     checksum_records: list[dict[str, str]] = []
+    processed_slide_ids: list[str] = []
     slides_processed = 0
 
     for _, row in tqdm(batch_df.iterrows(), total=len(batch_df), desc="Advanced batch"):
@@ -768,12 +840,15 @@ def run(args: argparse.Namespace) -> int:
             candidate_frames.append(candidate_df)
             selected_frames.append(selected_df)
             checksum_records.extend(checksums)
+            processed_slide_ids.append(slide_id)
             slides_processed += 1
+            partial_bag = len(selected_df) < int(config.get("tiles_per_slide", 128))
             logger.info(
-                "slide=%s candidates=%s selected=%s",
+                "slide=%s candidates=%s selected=%s partial_bag=%s",
                 slide_id,
                 len(candidate_df),
                 len(selected_df),
+                partial_bag,
             )
         except Exception as exc:
             logger.exception("Error procesando slide=%s", slide_id)
@@ -798,13 +873,19 @@ def run(args: argparse.Namespace) -> int:
         write_csv(pd.DataFrame(checksum_records), batch_paths["checksums"])
 
     finished_at = datetime.now()
-    selected_stats = selected_count_stats(selected_manifest)
+    selected_stats = selected_count_stats(
+        selected_manifest,
+        processed_slide_ids=processed_slide_ids,
+        tiles_per_slide=int(config.get("tiles_per_slide", 128)),
+    )
     summary = {
         "batch_index": int(args.batch_index),
         "batch_size": int(args.batch_size),
         "batch_start": int(start_index),
         "batch_end": int(end_index),
         "tiles_per_slide": int(config.get("tiles_per_slide", 128)),
+        "absolute_min_tissue_pct": float(config.get("absolute_min_tissue_pct", 0.0)),
+        "allow_partial_bags": bool(config.get("allow_partial_bags", True)),
         "mask_usage_policy": mask_usage_policy,
         "slides_requested": int(len(batch_df)),
         "slides_processed": int(slides_processed),
