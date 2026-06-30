@@ -1,0 +1,10 @@
+encoder: virchow2
+model_name: paige-ai/Virchow2
+embedding_dim: 1280
+image_size: 224
+tiles_per_slide: 128
+advanced_tiles: true
+expected_tile_size: 256
+mixed_precision: true
+normalize: true
+output_subdir: virchow2_advanced_128

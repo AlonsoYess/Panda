@@ -1,0 +1,10 @@
+encoder: uni2h
+model_name: MahM/UNI2-h
+embedding_dim: 1536
+image_size: 224
+tiles_per_slide: 128
+advanced_tiles: true
+expected_tile_size: 256
+mixed_precision: true
+normalize: true
+output_subdir: uni2h_advanced_128
