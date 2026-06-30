@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import statistics
 import zipfile
@@ -92,6 +93,7 @@ def parse_args() -> argparse.Namespace:
         default=Path("quality_reports") / "advanced_tiles_zip_validation",
     )
     parser.add_argument("--expected-batch-size", type=int, default=100)
+    parser.add_argument("--expected-total-slides", type=int, default=None)
     parser.add_argument("--tiles-per-slide", type=int, default=128)
     parser.add_argument("--absolute-min-tissue-pct", type=float, default=0.30)
     parser.add_argument("--fail-on-error", action="store_true")
@@ -132,6 +134,49 @@ def parse_batch_name(zip_path: Path) -> dict[str, Any]:
     }
 
 
+def build_expected_batch_names(expected_total_slides: int, expected_batch_size: int) -> list[str]:
+    if int(expected_total_slides) < 1:
+        raise ValueError("--expected-total-slides debe ser >= 1 cuando se informa.")
+    if int(expected_batch_size) < 1:
+        raise ValueError("--expected-batch-size debe ser >= 1.")
+    total_batches = int(math.ceil(int(expected_total_slides) / int(expected_batch_size)))
+    names = []
+    for batch_index in range(total_batches):
+        start = batch_index * int(expected_batch_size)
+        end = min(start + int(expected_batch_size) - 1, int(expected_total_slides) - 1)
+        names.append(f"batch_{start:04d}_{end:04d}")
+    return names
+
+
+def missing_result(batch_name: str, zips_dir: Path) -> dict[str, Any]:
+    return {
+        "batch_name": batch_name,
+        "zip_path": str(zips_dir / f"{batch_name}.zip"),
+        "zip_size_mb": 0.0,
+        "status": "MISSING",
+        "errors_count": 0,
+        "warnings_count": 0,
+        "slides_processed": 0,
+        "slides_failed": 0,
+        "total_selected": 0,
+        "total_candidates": 0,
+        "slides_with_partial_bags": 0,
+        "min_selected_per_slide": 0,
+        "mean_selected_per_slide": 0.0,
+        "max_selected_per_slide": 0,
+        "selected_png_count": 0,
+        "manifest_rows": 0,
+        "candidate_rows": 0,
+        "checksum_rows": 0,
+        "low_tissue_selected_count": 0,
+        "missing_tile_files_count": 0,
+        "duplicate_tile_id_count": 0,
+        "duplicate_slide_tile_count": 0,
+        "validation_errors": "",
+        "validation_warnings": "ZIP pendiente/no encontrado en zips_dir",
+    }
+
+
 def normalize_zip_member(path: str) -> str:
     return str(path).replace("\\", "/").lstrip("./")
 
@@ -156,7 +201,7 @@ def read_json_from_zip(zf: zipfile.ZipFile, member: str) -> dict[str, Any]:
 
 def read_csv_from_zip(zf: zipfile.ZipFile, member: str) -> pd.DataFrame:
     with zf.open(member) as file:
-        return pd.read_csv(file)
+        return pd.read_csv(file, low_memory=False)
 
 
 def safe_int(value: Any, default: int = 0) -> int:
@@ -459,6 +504,7 @@ def status_counts(report_df: pd.DataFrame) -> dict[str, int]:
         "OK": int(counts.get("OK", 0)),
         "WARNING": int(counts.get("WARNING", 0)),
         "ERROR": int(counts.get("ERROR", 0)),
+        "MISSING": int(counts.get("MISSING", 0)),
     }
 
 
@@ -491,6 +537,8 @@ def write_reports(
     zips_dir: Path,
     output_dir: Path,
     total_zips_found: int,
+    total_expected_batches: int | None = None,
+    missing_batches: list[str] | None = None,
 ) -> dict[str, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     report_df = pd.DataFrame(results)
@@ -503,11 +551,14 @@ def write_reports(
     global_stats = numeric_global_stats(report_df)
     invalid_batches = report_df.loc[report_df["status"] == "ERROR", "batch_name"].tolist()
     warning_batches = report_df.loc[report_df["status"] == "WARNING", "batch_name"].tolist()
+    missing_batches = list(missing_batches or [])
     summary = {
         "datetime": datetime.now(timezone.utc).isoformat(),
         "zips_dir": str(zips_dir),
         "output_dir": str(output_dir),
         "total_zips_found": int(total_zips_found),
+        "total_expected_batches": total_expected_batches,
+        "zips_missing_count": counts["MISSING"],
         "zips_ok": counts["OK"],
         "zips_warning": counts["WARNING"],
         "zips_error": counts["ERROR"],
@@ -518,6 +569,7 @@ def write_reports(
         **global_stats,
         "invalid_batches": invalid_batches,
         "warning_batches": warning_batches,
+        "missing_batches": missing_batches,
     }
 
     csv_path = output_dir / "advanced_tile_zips_validation_report.csv"
@@ -552,7 +604,22 @@ def write_reports(
     return {"csv": csv_path, "json": json_path, "txt": txt_path}
 
 
-def print_console_table(results: list[dict[str, Any]]) -> None:
+def print_console_table(
+    results: list[dict[str, Any]],
+    *,
+    zips_found: int,
+    expected_batches: int | None,
+    missing_batches: list[str],
+) -> None:
+    counts = status_counts(pd.DataFrame(results))
+    print("\nZIP validation counts")
+    print(f"- zips_found: {zips_found}")
+    print(f"- expected_batches: {expected_batches if expected_batches is not None else 'N/A'}")
+    print(f"- missing_batches: {len(missing_batches)}")
+    print(f"- zips_ok: {counts['OK']}")
+    print(f"- zips_warning: {counts['WARNING']}")
+    print(f"- zips_error: {counts['ERROR']}")
+
     if not results:
         print("No ZIP files found.")
         return
@@ -574,11 +641,18 @@ def main() -> None:
     args = parse_args()
     try:
         zip_files = find_zip_files(args.zips_dir, args.pattern, args.max_zips)
+        expected_batch_names: list[str] = []
+        if args.expected_total_slides is not None:
+            expected_batch_names = build_expected_batch_names(
+                expected_total_slides=int(args.expected_total_slides),
+                expected_batch_size=int(args.expected_batch_size),
+            )
     except Exception as exc:
         print(f"[ERROR] Argument error: {type(exc).__name__}: {exc}")
         raise SystemExit(1) from exc
 
     results: list[dict[str, Any]] = []
+    found_batch_names: set[str] = set()
     for zip_path in zip_files:
         print(f"[INFO] Validating {zip_path}")
         result = validate_single_zip(
@@ -588,14 +662,29 @@ def main() -> None:
             absolute_min_tissue_pct=float(args.absolute_min_tissue_pct),
         )
         results.append(result)
+        parsed = parse_batch_name(zip_path)
+        if parsed["valid"]:
+            found_batch_names.add(str(parsed["batch_name"]))
+
+    missing_batches = [
+        batch_name for batch_name in expected_batch_names if batch_name not in found_batch_names
+    ]
+    results.extend(missing_result(batch_name, args.zips_dir) for batch_name in missing_batches)
 
     report_paths = write_reports(
         results,
         zips_dir=args.zips_dir,
         output_dir=args.output_dir,
         total_zips_found=len(zip_files),
+        total_expected_batches=len(expected_batch_names) if expected_batch_names else None,
+        missing_batches=missing_batches,
     )
-    print_console_table(results)
+    print_console_table(
+        results,
+        zips_found=len(zip_files),
+        expected_batches=len(expected_batch_names) if expected_batch_names else None,
+        missing_batches=missing_batches,
+    )
     print("\nReports generated:")
     for label, path in report_paths.items():
         print(f"- {label}: {path}")
