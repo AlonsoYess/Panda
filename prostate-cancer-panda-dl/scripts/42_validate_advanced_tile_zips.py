@@ -20,7 +20,7 @@ from typing import Any, Dict, Iterable, List
 
 import pandas as pd
 
-BATCH_NAME_RE = re.compile(r"^(batch_(\d{4})_(\d{4}))\.zip$")
+BATCH_NAME_RE = re.compile(r"^(batch_(\d+)_(\d+))\.zip$")
 DEFAULT_PATTERN = "batch_*.zip"
 
 REQUIRED_INTERNAL_FILES = [

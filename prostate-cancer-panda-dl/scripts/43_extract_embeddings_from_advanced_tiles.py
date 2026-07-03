@@ -34,7 +34,7 @@ from src.encoders.uni2h import EXPECTED_UNI2H_DIM, UNI2HEncoder, validate_embedd
 from src.encoders.virchow2 import VIRCHOW2_MODEL_ID, Virchow2Encoder, validate_embedding_tensor as validate_virchow2_tensor
 from src.utils.provenance import get_cuda_info, get_git_info, get_software_versions, utc_now_iso
 
-BATCH_RE = re.compile(r"batch_(\d{4})_(\d{4})")
+BATCH_RE = re.compile(r"batch_(\d+)_(\d+)")
 REQUIRED_MANIFEST_COLUMNS = [
     "slide_id",
     "tile_id",
