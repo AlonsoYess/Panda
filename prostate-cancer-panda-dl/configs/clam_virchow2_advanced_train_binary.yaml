@@ -1,0 +1,44 @@
+experiment_name: clam_virchow2_advanced_binary
+task: binary cancer detection
+label_key: cancer_label
+label_column: cancer_label
+input_dim: 1280
+encoder_name: virchow2
+model_name: paige-ai/Virchow2
+
+embeddings_root: /content/drive/MyDrive/PANDA_PROSTATE/outputs/virchow2_advanced_128/embeddings
+output_root: /content/drive/MyDrive/PANDA_PROSTATE/outputs/clam_virchow2_advanced_binary
+checkpoints_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/clam_virchow2_advanced_binary/checkpoints
+metrics_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/clam_virchow2_advanced_binary/metrics
+plots_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/clam_virchow2_advanced_binary/plots
+logs_dir: /content/drive/MyDrive/PANDA_PROSTATE/outputs/clam_virchow2_advanced_binary/logs
+
+hidden_dim: 256
+attention_dim: 128
+dropout: 0.25
+k_sample: 8
+instance_loss_weight: 0.3
+epochs: 50
+batch_size: 1
+learning_rate: 0.0001
+weight_decay: 0.00001
+early_stopping_patience: 10
+monitor: valid_auc
+random_seed: 42
+threshold_default: 0.5
+threshold_selection: Youden
+num_workers: 0
+pin_memory: false
+save_epoch_checkpoints: true
+resume: true
+mixed_precision: false
+device: cuda
+max_train: null
+max_valid: null
+max_test: null
+pos_weight: null
+
+expected_splits:
+  - train
+  - valid
+  - test
