@@ -148,12 +148,15 @@ def apply_overrides(config: Dict[str, Any], args: argparse.Namespace) -> Dict[st
 def validate_config(config: Dict[str, Any]) -> None:
     encoder_name = normalize_encoder_name(str(config["encoder_name"]))
     expected_dim = expected_dim_for_encoder(encoder_name)
-    if encoder_name != "virchow2":
-        raise ValueError("DTFD-MIL advanced solicitado aqui solo usa encoder_name=virchow2.")
     if int(config["input_dim"]) != expected_dim:
-        raise ValueError(f"input_dim debe ser {expected_dim} para Virchow2 advanced.")
-    if str(config["model_name"]) != "paige-ai/Virchow2":
-        raise ValueError("model_name debe ser paige-ai/Virchow2.")
+        raise ValueError(f"input_dim debe ser {expected_dim} para encoder={encoder_name}.")
+    expected_model_names = {
+        "virchow2": "paige-ai/Virchow2",
+        "uni2h": "MahmoodLab/UNI2-h",
+    }
+    expected_model_name = expected_model_names[encoder_name]
+    if str(config["model_name"]) != expected_model_name:
+        raise ValueError(f"model_name debe ser {expected_model_name}.")
     if str(config["label_column"]) != "cancer_label":
         raise ValueError("label_column debe ser cancer_label.")
     for key in ("epochs", "batch_size_bags", "hidden_dim", "attention_dim", "num_pseudo_bags", "top_k"):
