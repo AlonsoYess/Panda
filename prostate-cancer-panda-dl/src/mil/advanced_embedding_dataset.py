@@ -25,6 +25,10 @@ ENCODER_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "model_names": {"MahmoodLab/UNI2-h"},
         "embedding_dim": 1536,
     },
+    "provgigapath": {
+        "model_names": {"prov-gigapath/prov-gigapath"},
+        "embedding_dim": 1536,
+    },
 }
 
 
@@ -41,6 +45,10 @@ def normalize_encoder_name(encoder_name: str) -> str:
         "uni2h": "uni2h",
         "uni2-h": "uni2h",
         "uni2_h": "uni2h",
+        "provgigapath": "provgigapath",
+        "prov-gigapath": "provgigapath",
+        "prov_gigapath": "provgigapath",
+        "gigapath": "provgigapath",
     }
     if value not in aliases:
         raise AdvancedEmbeddingDatasetError(

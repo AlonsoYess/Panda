@@ -1,0 +1,10 @@
+encoder: provgigapath
+model_name: prov-gigapath/prov-gigapath
+embedding_dim: 1536
+image_size: 224
+tiles_per_slide: 128
+advanced_tiles: true
+expected_tile_size: 256
+mixed_precision: true
+normalize: true
+output_subdir: provgigapath_advanced_128
