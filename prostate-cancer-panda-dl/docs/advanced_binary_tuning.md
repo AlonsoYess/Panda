@@ -11,18 +11,48 @@ no debe usarse para elegir hiperparametros, arquitectura, threshold ni variantes
 de entrenamiento. Test se reserva para una unica evaluacion final despues de
 seleccionar las configuraciones con validacion.
 
-## Candidatos iniciales
+## Planes de tuning
 
-Se generan variantes solo para cuatro candidatos con encoder Virchow2:
+El generador soporta dos planes:
 
-- `Virchow2 + DTFD-MIL`
-- `Virchow2 + ABMIL`
+```text
+--plan initial6
+--plan full15
+```
+
+### Plan initial6
+
+`initial6` es el primer bloque experimental y es el plan por defecto. Genera
+6 combinaciones por 12 variantes, para un total de 72 configs:
+
 - `Virchow2 + CLAM`
-- `Virchow2 + ACMIL`
+- `Virchow2 + DTFD-MIL`
+- `UNI2-h + ACMIL`
+- `UNI2-h + DSMIL`
+- `Prov-GigaPath + CLAM`
+- `Prov-GigaPath + ABMIL`
 
-La seleccion parte de estos modelos porque Virchow2 fue el extractor mas
-consistente, DTFD-MIL obtuvo alto AUC, ABMIL mantuvo buen balance general, CLAM
-mostro alto recall y ACMIL sostuvo sensibilidad competitiva.
+### Plan full15
+
+`full15` permite ampliar el tuning a toda la matriz:
+
+```text
+3 encoders x 5 modelos MIL x 12 variantes = 180 configs
+```
+
+Encoders:
+
+- `Virchow2`
+- `UNI2-h`
+- `Prov-GigaPath`
+
+Modelos MIL:
+
+- `ABMIL`
+- `CLAM`
+- `DSMIL`
+- `DTFD-MIL`
+- `ACMIL`
 
 ## Archivos generados
 
@@ -59,6 +89,22 @@ checkpoints dentro del repositorio temporal.
 
 ```bash
 python scripts/57_generate_tuning_configs_advanced_binary.py
+```
+
+Generar explicitamente el primer bloque:
+
+```bash
+python scripts/57_generate_tuning_configs_advanced_binary.py \
+  --plan initial6 \
+  --overwrite
+```
+
+Ampliar a toda la matriz:
+
+```bash
+python scripts/57_generate_tuning_configs_advanced_binary.py \
+  --plan full15 \
+  --overwrite
 ```
 
 Opcionalmente se puede cambiar el destino de resultados:

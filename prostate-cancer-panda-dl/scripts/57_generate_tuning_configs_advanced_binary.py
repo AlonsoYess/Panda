@@ -21,9 +21,31 @@ DEFAULT_TUNING_OUTPUTS_ROOT = "/content/drive/MyDrive/PANDA_PROSTATE/outputs/tun
 DEFAULT_MANIFEST = DEFAULT_OUTPUT_CONFIG_DIR / "tuning_manifest.csv"
 SELECTION_OBJECTIVE = "valid_auc"
 
-CANDIDATES = {
+ENCODERS = ["virchow2", "uni2h", "provgigapath"]
+MODELS = ["abmil", "clam", "dsmil", "dtfdmil", "acmil"]
+PLAN_COMBINATIONS = {
+    "initial6": [
+        ("virchow2", "clam"),
+        ("virchow2", "dtfdmil"),
+        ("uni2h", "acmil"),
+        ("uni2h", "dsmil"),
+        ("provgigapath", "clam"),
+        ("provgigapath", "abmil"),
+    ],
+    "full15": [(encoder, model) for encoder in ENCODERS for model in MODELS],
+}
+
+MODEL_GRIDS = {
+    "dsmil": {
+        "grid": {
+            "learning_rate": [1e-4, 5e-5],
+            "weight_decay": [1e-5, 1e-4],
+            "dropout": [0.25, 0.35],
+            "hidden_dim": [256, 512],
+            "loss_function": ["bce", "weighted_bce", "focal"],
+        },
+    },
     "dtfdmil": {
-        "base_config": CONFIG_DIR / "dtfdmil_virchow2_advanced_train_binary.yaml",
         "grid": {
             "learning_rate": [1e-4, 5e-5],
             "weight_decay": [1e-5, 1e-4],
@@ -33,7 +55,6 @@ CANDIDATES = {
         },
     },
     "abmil": {
-        "base_config": CONFIG_DIR / "abmil_virchow2_advanced_train_binary.yaml",
         "grid": {
             "learning_rate": [1e-4, 5e-5],
             "weight_decay": [1e-5, 1e-4],
@@ -43,7 +64,6 @@ CANDIDATES = {
         },
     },
     "clam": {
-        "base_config": CONFIG_DIR / "clam_virchow2_advanced_train_binary.yaml",
         "grid": {
             "learning_rate": [1e-4, 5e-5],
             "weight_decay": [1e-5, 1e-4],
@@ -55,7 +75,6 @@ CANDIDATES = {
         },
     },
     "acmil": {
-        "base_config": CONFIG_DIR / "acmil_virchow2_advanced_train_binary.yaml",
         "grid": {
             "learning_rate": [1e-4, 5e-5],
             "weight_decay": [1e-5, 1e-4],
@@ -68,6 +87,7 @@ CANDIDATES = {
 
 MANIFEST_COLUMNS = [
     "tuning_id",
+    "plan",
     "encoder",
     "model",
     "base_config",
@@ -91,6 +111,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output-config-dir", type=Path, default=DEFAULT_OUTPUT_CONFIG_DIR)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument(
+        "--plan",
+        choices=sorted(PLAN_COMBINATIONS.keys()),
+        default="initial6",
+        help="Tuning plan to generate: initial6 or full15.",
+    )
     parser.add_argument(
         "--outputs-root",
         type=str,
@@ -117,6 +143,10 @@ def load_yaml(path: Path) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"Config YAML invalida: {path}")
     return data
+
+
+def base_config_path(encoder: str, model: str) -> Path:
+    return CONFIG_DIR / f"{model}_{encoder}_advanced_train_binary.yaml"
 
 
 def dump_yaml(path: Path, data: Dict[str, Any], *, overwrite: bool) -> None:
@@ -196,6 +226,7 @@ def display_path(path: Path) -> str:
 def create_variant_config(
     *,
     base_config: Dict[str, Any],
+    encoder_name: str,
     model_name: str,
     variant_name: str,
     params: Dict[str, Any],
@@ -206,7 +237,7 @@ def create_variant_config(
     output_dir = output_root_prefix / base_experiment / variant_name
 
     config["experiment_name"] = f"{base_experiment}_{variant_name}"
-    config["tuning_id"] = f"virchow2_{model_name}_{variant_name}"
+    config["tuning_id"] = f"{encoder_name}_{model_name}_{variant_name}"
     config["tuning_base_experiment"] = base_experiment
     config["selection_objective"] = SELECTION_OBJECTIVE
     for key, value in params.items():
@@ -226,6 +257,7 @@ def create_variant_config(
 def manifest_row(
     *,
     tuning_id: str,
+    plan: str,
     encoder: str,
     model: str,
     base_config: Path,
@@ -235,6 +267,7 @@ def manifest_row(
 ) -> Dict[str, Any]:
     return {
         "tuning_id": tuning_id,
+        "plan": plan,
         "encoder": encoder,
         "model": model,
         "base_config": display_path(base_config),
@@ -264,24 +297,39 @@ def write_manifest(path: Path, rows: Iterable[Dict[str, Any]], *, overwrite: boo
         writer.writerows(rows)
 
 
+def cleanup_generated_yaml(output_config_dir: Path) -> None:
+    """Remove stale generated tuning configs when regenerating a plan."""
+    if not output_config_dir.exists():
+        return
+    for path in output_config_dir.glob("*.yaml"):
+        path.unlink()
+
+
 def main() -> None:
     args = parse_args()
     output_config_dir = Path(args.output_config_dir)
     manifest_path = Path(args.manifest)
     output_root_prefix = absolute_outputs_root(str(args.outputs_root))
     rows: list[Dict[str, Any]] = []
+    plan_name = str(args.plan)
+    combinations = PLAN_COMBINATIONS[plan_name]
 
-    for model_name, spec in CANDIDATES.items():
-        base_config_path = Path(spec["base_config"])
-        base_config = load_yaml(base_config_path)
-        encoder = str(base_config.get("encoder_name", "virchow2"))
+    if bool(args.overwrite):
+        cleanup_generated_yaml(output_config_dir)
+
+    for encoder_name, model_name in combinations:
+        spec = MODEL_GRIDS[model_name]
+        base_config_path_value = base_config_path(encoder_name, model_name)
+        base_config = load_yaml(base_config_path_value)
+        encoder = str(base_config.get("encoder_name", encoder_name))
         full_grid = grid_product(spec["grid"])
         selected_grid = deterministic_subset(full_grid, int(args.max_variants_per_model))
 
         for index, params in enumerate(selected_grid, start=1):
-            variant_name = f"{model_name}_v{index:02d}"
+            variant_name = f"v{index:02d}"
             config, output_dir = create_variant_config(
                 base_config=base_config,
+                encoder_name=encoder_name,
                 model_name=model_name,
                 variant_name=variant_name,
                 params=params,
@@ -292,9 +340,10 @@ def main() -> None:
             rows.append(
                 manifest_row(
                     tuning_id=str(config["tuning_id"]),
+                    plan=plan_name,
                     encoder=encoder,
                     model=model_name,
-                    base_config=base_config_path,
+                    base_config=base_config_path_value,
                     config_path=config_path,
                     output_dir=output_dir,
                     params=params,
@@ -303,6 +352,7 @@ def main() -> None:
 
     write_manifest(manifest_path, rows, overwrite=bool(args.overwrite))
     print(f"[OK] Configs generados: {len(rows)}")
+    print(f"[OK] Plan: {plan_name}")
     print(f"[OK] Directorio configs: {output_config_dir}")
     print(f"[OK] Manifest: {manifest_path}")
 
