@@ -84,7 +84,7 @@ REQUIRED_CONFIG_KEYS = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Entrena ACMIL binario con embeddings Virchow2 advanced."
+        description="Entrena ACMIL binario con embeddings advanced."
     )
     parser.add_argument(
         "--config",
@@ -155,6 +155,7 @@ def validate_config(config: Dict[str, Any]) -> None:
     expected_model_names = {
         "virchow2": "paige-ai/Virchow2",
         "uni2h": "MahmoodLab/UNI2-h",
+        "provgigapath": "prov-gigapath/prov-gigapath",
     }
     expected_model_name = expected_model_names[encoder_name]
     if str(config["model_name"]) != expected_model_name:

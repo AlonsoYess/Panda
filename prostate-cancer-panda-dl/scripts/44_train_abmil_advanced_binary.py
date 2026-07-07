@@ -1,4 +1,4 @@
-"""Train ABMIL binary MIL on advanced Virchow2 or UNI2-h embeddings."""
+"""Train ABMIL binary MIL on advanced Virchow2, UNI2-h or Prov-GigaPath embeddings."""
 
 from __future__ import annotations
 
@@ -82,7 +82,7 @@ REQUIRED_CONFIG_KEYS = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Entrena ABMIL binario con embeddings advanced Virchow2/UNI2-h."
+        description="Entrena ABMIL binario con embeddings advanced Virchow2/UNI2-h/Prov-GigaPath."
     )
     parser.add_argument(
         "--config",
